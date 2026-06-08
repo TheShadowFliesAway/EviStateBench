@@ -3,13 +3,11 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lifelongscenedb"
+name = "evistatebench"
 version = "0.1.0"
-description = "Core probabilistic bitemporal scene memory prototype"
+description = "Benchmark scaffolding for temporal task-state view maintenance over embodied observation streams"
 requires-python = ">=3.10"
-dependencies = [
-  "pandas",
-]
+dependencies = []
 
 [tool.setuptools.packages.find]
-include = ["lifelongscenedb*"]
+include = ["evistatebench*"]

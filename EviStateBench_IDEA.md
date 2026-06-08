@@ -2,7 +2,7 @@
 
 > 论文形态：ICDE EAB  
 > 论文主角：EviStateBench  
-> Reference engine：EviStateDB  
+> Reference baseline engine：EviStateDB  
 > 核心问题：Temporal Task-State View Maintenance over Embodied Observation Streams  
 > 当前状态：定稿。后续只补实现细节、实验数字、引用、图表和消融，不再改问题中心。
 
@@ -27,14 +27,18 @@ EviStateDB
 
 **EviStateBench is a data-management benchmark for evaluating how systems maintain auditable temporal task-state views from noisy, delayed, out-of-order, missing, and conflicting embodied observation streams.**
 
-**EviStateDB is the reference materialized-view engine for this benchmark.**
+**EviStateDB is the reference baseline engine for this benchmark, not the oracle.**
+
+**Ground-truth answers are generated from simulator truth and task specifications.**
 
 中文固定表述：
 
 ```text
 EviStateBench 是一个面向数据管理的 benchmark，用来评测系统如何从带噪声、延迟、乱序、缺失和冲突的具身观察流中，维护可审计的时态任务状态视图。
 
-EviStateDB 是该 benchmark 的 reference materialized-view engine。
+EviStateDB 是该 benchmark 的 reference baseline engine，不是 oracle。
+
+标准答案由 simulator truth 和 task specification 生成，不由 EviStateDB 生成。
 ```
 
 ---
@@ -44,7 +48,7 @@ EviStateDB 是该 benchmark 的 reference materialized-view engine。
 本项目固定定位为：
 
 ```text
-temporal task-state view maintenance benchmark + reference engine
+temporal task-state view maintenance benchmark + reference baseline engine
 ```
 
 禁止作为主定位的说法：
@@ -101,12 +105,28 @@ We solve real-world robot state tracking.
 固定写法：
 
 ```text
-We introduce a benchmark and reference engine for temporal task-state view maintenance over embodied observation streams.
+We introduce a benchmark and a reference baseline engine for temporal task-state view maintenance over embodied observation streams. The benchmark oracle generates ground-truth answers from simulator truth and task specifications, not from EviStateDB.
 ```
 
 ---
 
 ## 5. Data Model
+
+本节区分两类对象：
+
+```text
+Public benchmark artifacts:
+  StateObservation streams
+  query sets
+  ground-truth answers
+  predicted QueryAnswers
+
+Reference / conceptual internal artifacts:
+  TemporalStateView
+  GoalView / PreconditionView / StateDiffView / FailureView / UncertainStateView
+```
+
+EviStateBench 对外评测的是系统输出的 predicted QueryAnswers，不要求任意被测系统暴露 TemporalStateView。
 
 ### 5.1 StateObservation
 
@@ -156,6 +176,16 @@ metadata: optional diagnostic information
 
 TemporalStateView 是从 Observation Log 维护出来的物化时态状态视图。
 
+注意：TemporalStateView 不是 EviStateBench 的 public output schema。它用于：
+
+```text
+1. 描述 benchmark 想评测的逻辑语义；
+2. 作为 EviStateDB reference baseline engine 的内部维护结构；
+3. 帮助 oracle / evaluator 定义 valid-time、transaction-time、evidence 和 revision 语义。
+```
+
+其他 baseline 或被测系统可以使用 retrieval、log scan、SQL、neural memory、rules 或任何内部表示。它们只需要对外输出统一格式的 predicted QueryAnswers。
+
 ```text
 TemporalStateView(
   state_id,
@@ -197,7 +227,7 @@ status = active
 
 ### 5.3 Task-derived Views
 
-Task views 从 TemporalStateView 派生：
+Task views 在 EviStateDB 内部可以从 TemporalStateView 派生；在 benchmark 层面，它们对应的是 query workload 和 answer schema，而不是要求所有系统暴露这些 view。
 
 ```text
 GoalView(task_id, time)
@@ -288,6 +318,13 @@ missing observations
 conflicting observations
 query sets
 ground-truth answers
+```
+
+注意：
+
+```text
+ground-truth answers 由 simulator truth、BDDL/task specification 和 perturbation log 生成。
+EviStateDB 不负责生成标准答案；EviStateDB 只是一个会被 evaluator 打分的 reference baseline engine。
 ```
 
 主数据源选择理由：
@@ -550,7 +587,7 @@ answer state query
 
 ### B7 EviStateDB
 
-参考引擎，维护：
+reference baseline engine，维护：
 
 ```text
 materialized temporal state views
@@ -565,9 +602,11 @@ predicate-time-evidence-task indexes
 
 ---
 
-## 13. EviStateDB Reference Engine
+## 13. EviStateDB Reference Baseline Engine
 
-EviStateDB 只作为 reference engine，不主张最强系统。
+EviStateDB 只作为 reference baseline engine，不主张最强系统，也不是 benchmark oracle。
+
+标准答案由 simulator truth 和 task specification 生成；EviStateDB 输出 predicted answers，并和其他 baseline 一样被 evaluator 打分。
 
 职责：
 
@@ -848,7 +887,7 @@ EviStateBench 将 support / contradict evidence、confidence 和 revision histor
 2. Background and Motivation
 3. Problem Definition
 4. EviStateBench Benchmark
-5. EviStateDB Reference Engine
+5. EviStateDB Reference Baseline Engine
 6. Experimental Setup
 7. Evaluation and Analysis
 8. External Data Validation
@@ -867,12 +906,12 @@ EviStateBench 将 support / contradict evidence、confidence 和 revision histor
 
 ```text
 StateObservation schema
-TemporalStateView schema
+public query / answer schema
 predicate schema
 episode state timeline extraction
 noise/delay/out-of-order/conflict/missing injection
 query generator
-ground-truth answer generator
+ground-truth answer generator from simulator truth and task specifications
 ```
 
 ### Phase 2: Baselines
@@ -885,7 +924,7 @@ Temporal Log + Voting
 Static Symbolic State
 SQL / DuckDB Scan
 Recall Memory Baseline
-EviStateDB reference engine
+EviStateDB reference baseline engine
 ```
 
 Generic IVM baseline 可作为加强项。
@@ -945,7 +984,8 @@ qualitative examples
 
 ```text
 EviStateBench 是论文主角；
-EviStateDB 是 reference engine；
+EviStateDB 是 reference baseline engine，不是 oracle；
+标准答案由 simulator truth 和 task specification 生成；
 核心问题是 temporal task-state view maintenance；
 主实验来自 BEHAVIOR / OmniGibson-derived benchmark；
 必须包含 noisy / delayed / out-of-order / missing / conflicting perturbations；
