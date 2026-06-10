@@ -14,16 +14,17 @@ from __future__ import annotations
 
 import argparse
 import copy
+import gzip
 import json
 import random
 import sys
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -33,6 +34,26 @@ from evistatebench.schema import StateObservation  # noqa: E402
 DEFAULT_INPUT_PATH = REPO_ROOT / "data" / "clean_state_observations_v0.jsonl"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "data" / "observation_streams_v0"
 DEFAULT_REPORT_PATH = REPO_ROOT / "reports" / "perturbed_observations_v0.md"
+
+ALL_STREAMS = (
+    "delay",
+    "out_of_order",
+    "missing",
+    "low_confidence",
+    "conflict",
+    "mixed",
+)
+STREAM_PROFILES = {
+    "full": ALL_STREAMS,
+    "main": ("mixed",),
+    "diagnostic": (
+        "delay",
+        "out_of_order",
+        "missing",
+        "low_confidence",
+        "conflict",
+    ),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,9 +81,15 @@ def observation_from_dict(row: dict[str, Any]) -> StateObservation:
     return StateObservation(**row)
 
 
+def open_text(path: Path, mode: str = "r"):
+    if path.name.endswith(".gz"):
+        return gzip.open(path, mode + "t", encoding="utf-8")
+    return path.open(mode, encoding="utf-8")
+
+
 def load_observations(path: Path) -> list[StateObservation]:
     observations: list[StateObservation] = []
-    with path.open(encoding="utf-8") as f:
+    with open_text(path) as f:
         for line in f:
             if not line.strip():
                 continue
@@ -122,7 +149,7 @@ def clone_observation(
     obs_id: str | None = None,
     arrival_time: float | None = None,
     confidence: float | None = None,
-    observed_value: bool | int | float | str | None = None,
+    observed_value: Any | None = None,
     source: str | None = None,
     evidence_ref: str | None = None,
     extra_metadata: dict[str, Any] | None = None,
@@ -141,6 +168,7 @@ def clone_observation(
         if observed_value is None
         else observed_value,
         confidence=obs.confidence if confidence is None else round(confidence, 6),
+        observation_kind=obs.observation_kind,
         evidence_ref=obs.evidence_ref if evidence_ref is None else evidence_ref,
         polarity="support",
         metadata=perturbation_metadata(
@@ -186,6 +214,7 @@ def with_stream_order(
                 arguments=obs.arguments,
                 observed_value=obs.observed_value,
                 confidence=obs.confidence,
+                observation_kind=obs.observation_kind,
                 evidence_ref=obs.evidence_ref,
                 polarity=obs.polarity,
                 metadata=metadata,
@@ -196,7 +225,7 @@ def with_stream_order(
 
 def write_observations(path: Path, observations: list[StateObservation]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
+    with open_text(path, "w") as f:
         for obs in observations:
             f.write(json.dumps(obs.to_dict(), ensure_ascii=False, sort_keys=True))
             f.write("\n")
@@ -542,6 +571,9 @@ def write_manifest(
         "streams": {
             result.name: {
                 "path": str(path.parent / result.path),
+                "bytes": (path.parent / result.path).stat().st_size
+                if (path.parent / result.path).exists()
+                else None,
                 "observations": result.output_count,
                 "dropped": result.dropped_count,
                 "conflict_added": result.conflict_added_count,
@@ -617,10 +649,24 @@ def build_report(
             operation_counter.update(
                 obs.metadata.get("perturbation", {}).get("operations", [])
             )
+    sample_result = next(
+        (result for result in results if result.name == "mixed"),
+        results[0] if results else None,
+    )
+    sample_heading = (
+        "Mixed Stream Sample"
+        if sample_result is not None and sample_result.name == "mixed"
+        else "Selected Stream Sample"
+    )
+    sample_text = (
+        sample_table(sample_result, 16)
+        if sample_result is not None
+        else "No selected stream was generated."
+    )
 
     return f"""# Perturbed StateObservation Streams v0
 
-本报告由 `tools/build_perturbed_observations.py` 生成。
+本报告由 `tools/artifacts/build_perturbed_observations.py` 生成。
 
 它对应最小验证计划的第 4 步：
 
@@ -658,9 +704,9 @@ def build_report(
 
 {table_from_counter(source_counter, top_n)}
 
-## Mixed Stream Sample
+## {sample_heading}
 
-{sample_table(next(result for result in results if result.name == "mixed"), 16)}
+{sample_text}
 
 ## 生成规则
 
@@ -696,8 +742,47 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--conflict-rate", type=float, default=0.1)
     parser.add_argument("--conflict-confidence", type=float, default=0.65)
     parser.add_argument("--conflict-max-delay-seconds", type=float, default=6.0)
+    parser.add_argument(
+        "--profile",
+        choices=sorted(STREAM_PROFILES),
+        default="full",
+        help=(
+            "Stream profile to generate. full keeps all perturbation regimes; "
+            "main keeps only the mixed stream; diagnostic keeps single-factor streams."
+        ),
+    )
+    parser.add_argument(
+        "--streams",
+        help=(
+            "Optional comma-separated stream override, e.g. mixed,missing. "
+            "When provided, this takes precedence over --profile."
+        ),
+    )
+    parser.add_argument(
+        "--gzip",
+        action="store_true",
+        help="Write generated streams as .jsonl.gz instead of plain .jsonl.",
+    )
     parser.add_argument("--top-n", type=int, default=25)
     return parser.parse_args()
+
+
+def selected_streams(args: argparse.Namespace) -> tuple[str, ...]:
+    if args.streams:
+        streams = tuple(item.strip() for item in args.streams.split(",") if item.strip())
+    else:
+        streams = STREAM_PROFILES[args.profile]
+    unknown = sorted(set(streams) - set(ALL_STREAMS))
+    if unknown:
+        raise ValueError(f"Unknown perturbation stream(s): {', '.join(unknown)}")
+    if not streams:
+        raise ValueError("At least one perturbation stream must be selected")
+    return streams
+
+
+def with_output_extension(result: RegimeResult, *, gzip_output: bool) -> RegimeResult:
+    extension = ".jsonl.gz" if gzip_output else ".jsonl"
+    return replace(result, path=Path(f"{result.name}{extension}"))
 
 
 def validate_args(args: argparse.Namespace) -> None:
@@ -729,6 +814,7 @@ def main() -> None:
     validate_args(args)
 
     clean = load_observations(args.input)
+    streams = selected_streams(args)
     params = {
         "constant_delay_seconds": args.constant_delay_seconds,
         "max_random_delay_seconds": args.max_random_delay_seconds,
@@ -739,39 +825,42 @@ def main() -> None:
         "conflict_rate": args.conflict_rate,
         "conflict_confidence": args.conflict_confidence,
         "conflict_max_delay_seconds": args.conflict_max_delay_seconds,
+        "stream_profile": args.profile,
+        "selected_streams": list(streams),
+        "compression": "gzip" if args.gzip else "none",
     }
 
-    results = [
-        build_delay_stream(
+    builders = {
+        "delay": lambda: build_delay_stream(
             clean,
             seed=args.seed + 1,
             delay_seconds=args.constant_delay_seconds,
         ),
-        build_out_of_order_stream(
+        "out_of_order": lambda: build_out_of_order_stream(
             clean,
             seed=args.seed + 2,
             max_delay_seconds=args.max_random_delay_seconds,
         ),
-        build_missing_stream(
+        "missing": lambda: build_missing_stream(
             clean,
             seed=args.seed + 3,
             missing_rate=args.missing_rate,
         ),
-        build_low_confidence_stream(
+        "low_confidence": lambda: build_low_confidence_stream(
             clean,
             seed=args.seed + 4,
             low_confidence_rate=args.low_confidence_rate,
             low_confidence_min=args.low_confidence_min,
             low_confidence_max=args.low_confidence_max,
         ),
-        build_conflict_stream(
+        "conflict": lambda: build_conflict_stream(
             clean,
             seed=args.seed + 5,
             conflict_rate=args.conflict_rate,
             conflict_confidence=args.conflict_confidence,
             conflict_max_delay_seconds=args.conflict_max_delay_seconds,
         ),
-        build_mixed_stream(
+        "mixed": lambda: build_mixed_stream(
             clean,
             seed=args.seed + 6,
             missing_rate=args.missing_rate,
@@ -782,6 +871,10 @@ def main() -> None:
             conflict_confidence=args.conflict_confidence,
             max_delay_seconds=args.max_random_delay_seconds,
         ),
+    }
+    results = [
+        with_output_extension(builders[name](), gzip_output=args.gzip)
+        for name in streams
     ]
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -822,6 +915,8 @@ def main() -> None:
                 "manifest": str(manifest_path),
                 "streams": {
                     result.name: {
+                        "path": str(args.output_dir / result.path),
+                        "bytes": (args.output_dir / result.path).stat().st_size,
                         "observations": result.output_count,
                         "dropped": result.dropped_count,
                         "conflict_added": result.conflict_added_count,

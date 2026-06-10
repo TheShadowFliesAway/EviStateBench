@@ -45,5 +45,9 @@ dist/
 
 # Local generated data and experiment results
 data/
+reports/
+real_data_pipeline/reports*/
+real_data_pipeline/artifacts/*
+!real_data_pipeline/artifacts/README.md
 outputs/
 figures/

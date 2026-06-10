@@ -372,7 +372,7 @@ def build_report(
 
     report = f"""# BDDL Task Audit Report
 
-本报告由 `tools/audit_bddl_tasks.py` 生成，用于 EviStateBench Phase 1：从 BEHAVIOR/BDDL 任务定义反推 task-state space。
+本报告由 `tools/synthetic_legacy/audit_bddl_tasks.py` 生成，用于 EviStateBench Phase 1：从 BEHAVIOR/BDDL 任务定义反推 task-state space。
 
 ## 数据来源
 

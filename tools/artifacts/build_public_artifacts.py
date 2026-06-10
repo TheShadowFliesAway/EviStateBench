@@ -16,6 +16,7 @@ Hidden timelines and answer sets remain outside this public package.
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import re
 import sys
@@ -24,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -50,6 +51,7 @@ PUBLIC_OBSERVATION_KEYS = (
     "predicate_name",
     "arguments",
     "observed_value",
+    "observation_kind",
     "confidence",
     "evidence_ref",
     "polarity",
@@ -62,21 +64,46 @@ SOURCE_REWRITE = {
 }
 
 
+def open_text(path: Path, mode: str = "r"):
+    if path.name.endswith(".gz"):
+        return gzip.open(path, mode + "t", encoding="utf-8")
+    return path.open(mode, encoding="utf-8")
+
+
+def stream_name_for_path(path: Path) -> str:
+    name = path.name
+    if name.endswith(".jsonl.gz"):
+        return name[: -len(".jsonl.gz")]
+    if name.endswith(".jsonl"):
+        return name[: -len(".jsonl")]
+    return path.stem
+
+
+def iter_jsonl_paths(directory: Path) -> list[Path]:
+    return sorted(
+        [*directory.glob("*.jsonl"), *directory.glob("*.jsonl.gz")],
+        key=lambda path: (stream_name_for_path(path), path.name),
+    )
+
+
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    with path.open(encoding="utf-8") as f:
+    with open_text(path) as f:
         return [json.loads(line) for line in f if line.strip()]
 
 
 def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
+    with open_text(path, "w") as f:
         for row in rows:
             f.write(json.dumps(row, ensure_ascii=False, sort_keys=True))
             f.write("\n")
 
 
 def relative(path: Path) -> str:
-    return str(path.relative_to(REPO_ROOT))
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
 
 
 def has_instance_suffix(argument: str) -> bool:
@@ -197,7 +224,16 @@ def build_task_specs(
 
 def clean_query_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     allowed = {}
-    for key in ("query_family", "task_family", "time_probe", "window", "target_event_time"):
+    for key in (
+        "query_family",
+        "task_family",
+        "time_probe",
+        "window",
+        "target_event_time",
+        "query_scope",
+        "diff_scope",
+        "goal_scope",
+    ):
         if key in metadata:
             allowed[key] = metadata[key]
     return allowed
@@ -240,6 +276,7 @@ def sanitize_observation(row: dict[str, Any]) -> dict[str, Any]:
         for key in PUBLIC_OBSERVATION_KEYS
         if key != "metadata"
     }
+    public["observation_kind"] = public.get("observation_kind") or "predicate_state"
     public["source"] = SOURCE_REWRITE.get(str(public["source"]), public["source"])
     public["arguments"] = list(public["arguments"])
     public["metadata"] = clean_observation_metadata(row)
@@ -247,9 +284,17 @@ def sanitize_observation(row: dict[str, Any]) -> dict[str, Any]:
 
 
 def sanitize_stream(input_path: Path, output_path: Path) -> int:
-    rows = [sanitize_observation(row) for row in read_jsonl(input_path)]
-    write_jsonl(output_path, rows)
-    return len(rows)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    count = 0
+    with open_text(input_path) as src, open_text(output_path, "w") as dst:
+        for line in src:
+            if not line.strip():
+                continue
+            row = sanitize_observation(json.loads(line))
+            dst.write(json.dumps(row, ensure_ascii=False, sort_keys=True))
+            dst.write("\n")
+            count += 1
+    return count
 
 
 def sanitize_streams(
@@ -257,19 +302,29 @@ def sanitize_streams(
     clean_stream_path: Path,
     stream_dir: Path,
     output_dir: Path,
+    gzip_streams: bool,
 ) -> dict[str, dict[str, Any]]:
     streams: dict[str, Path] = {"clean": clean_stream_path}
-    for path in sorted(stream_dir.glob("*.jsonl")):
-        streams[path.stem] = path
+    for path in iter_jsonl_paths(stream_dir):
+        stream_name = stream_name_for_path(path)
+        if stream_name in streams:
+            raise ValueError(
+                f"Duplicate observation stream name {stream_name!r}: "
+                f"{streams[stream_name]} and {path}"
+            )
+        streams[stream_name] = path
 
     output_stream_dir = output_dir / "observation_streams"
     summary: dict[str, dict[str, Any]] = {}
     for name, input_path in sorted(streams.items()):
-        output_path = output_stream_dir / f"{name}.jsonl"
+        extension = ".jsonl.gz" if gzip_streams else ".jsonl"
+        output_path = output_stream_dir / f"{name}{extension}"
         count = sanitize_stream(input_path, output_path)
         summary[name] = {
             "path": relative(output_path),
             "observations": count,
+            "bytes": output_path.stat().st_size,
+            "compression": "gzip" if gzip_streams else "none",
         }
     return summary
 
@@ -326,15 +381,18 @@ def build_report(
     query_counts = Counter(row["query_type"] for row in queries)
     family_counts = Counter(spec["task_family"] for spec in task_specs)
     stream_rows = [
-        "| stream | observations | path |",
-        "| --- | ---: | --- |",
+        "| stream | observations | bytes | compression | path |",
+        "| --- | ---: | ---: | --- | --- |",
     ]
     for name, info in sorted(streams.items()):
-        stream_rows.append(f"| `{name}` | {info['observations']} | `{info['path']}` |")
+        stream_rows.append(
+            f"| `{name}` | {info['observations']} | {info.get('bytes', 0)} | "
+            f"`{info.get('compression', 'none')}` | `{info['path']}` |"
+        )
 
     return f"""# Public Artifacts v0
 
-本报告由 `tools/7_build_public_artifacts.py` 生成。
+本报告由 `tools/artifacts/build_public_artifacts.py` 生成。
 
 它对应 artifact boundary cleanup：
 
@@ -368,7 +426,7 @@ public task specs + public observation streams + public query set
 ```text
 data/public_v0/task_specs.jsonl
 data/public_v0/queries.jsonl
-data/public_v0/observation_streams/*.jsonl
+data/public_v0/observation_streams/*.jsonl 或 *.jsonl.gz
 ```
 
 这些文件是 hidden / oracle / evaluation-only，不应提供给被测系统：
@@ -397,6 +455,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--stream-dir", type=Path, default=DEFAULT_STREAM_DIR)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT_PATH)
+    parser.add_argument(
+        "--gzip-streams",
+        action="store_true",
+        help="Write public observation streams as .jsonl.gz.",
+    )
     return parser.parse_args()
 
 
@@ -417,6 +480,7 @@ def main() -> None:
         clean_stream_path=args.clean_stream,
         stream_dir=args.stream_dir,
         output_dir=args.output_dir,
+        gzip_streams=args.gzip_streams,
     )
     write_manifest(
         output_dir=args.output_dir,

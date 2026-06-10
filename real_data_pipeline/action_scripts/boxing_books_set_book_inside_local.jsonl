@@ -1,0 +1,1 @@
+{"primitive": "SET_RELATION", "object": "book.n.02_1", "target": "box.n.01_1", "predicate": "inside", "value": true, "reset_before_sampling": true, "steps": 5}

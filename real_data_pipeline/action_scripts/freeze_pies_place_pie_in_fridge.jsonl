@@ -1,0 +1,5 @@
+{"primitive": "OPEN", "object": "electric_refrigerator.n.01_1"}
+{"primitive": "GRASP", "object": "apple_pie.n.01_1"}
+{"primitive": "PLACE_INSIDE", "object": "electric_refrigerator.n.01_1"}
+{"primitive": "CLOSE", "object": "electric_refrigerator.n.01_1"}
+{"primitive": "WAIT", "steps": 240}

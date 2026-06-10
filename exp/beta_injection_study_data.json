@@ -1,0 +1,90 @@
+{
+  "description": "Measured beta-signal injection study from completed final_metrics.json files. All entries are measured results, not placeholders.",
+  "metrics": {
+    "TransL1": "transition-window action L1; lower is better",
+    "ActionDeltaL1Beta": "action-delta L1 near beta peaks; lower is better",
+    "TGripF1": "transition-window gripper F1; higher is better",
+    "SelectionScore": "validation selection score stored in best_metrics.selection_score; lower is better"
+  },
+  "order": [
+    "Adapter 0.25",
+    "Adapter 0.50",
+    "Adapter 1.00",
+    "Gripper adapter",
+    "+ beta_horizon"
+  ],
+  "sources": {
+    "Adapter 0.25": "/root/autodl-tmp/laDyP-VLA/outputs/dp_explore_wave2_adaptive_20260524_082437/dp_ladyp_beta_adapter_scale025/final_metrics.json",
+    "Adapter 0.50": "/root/autodl-tmp/laDyP-VLA/outputs/dp_beta_adapter_main_explore_4gpu_20260524_052138/dp_ladyp_beta_adapter_pre/final_metrics.json",
+    "Adapter 1.00": "/root/autodl-tmp/laDyP-VLA/outputs/dp_explore_wave2_adaptive_20260524_082437/dp_ladyp_beta_adapter_scale100/final_metrics.json",
+    "Gripper adapter": "/root/autodl-tmp/laDyP-VLA/outputs/dp_explore_wave2_adaptive_20260524_082437/dp_ladyp_beta_gripper_adapter/final_metrics.json",
+    "+ beta_horizon": "/root/autodl-tmp/laDyP-VLA/outputs/dp_beta_adapter_main_explore_4gpu_20260524_052138/dp_ladyp_beta_horizon_adapter_pre/final_metrics.json"
+  },
+  "values": {
+    "Adapter 0.25": {
+      "SelectionScore": 0.26856338901510246,
+      "LIBERO": {
+        "TransL1": 0.21691182182056112,
+        "ActionDeltaL1Beta": 0.3304987940419098,
+        "TGripF1": 0.5958513790745384
+      },
+      "CALVIN": {
+        "TransL1": 0.18337942329150267,
+        "ActionDeltaL1Beta": 0.37690974567220215,
+        "TGripF1": 0.760423148724331
+      }
+    },
+    "Adapter 0.50": {
+      "SelectionScore": 0.2694878756324582,
+      "LIBERO": {
+        "TransL1": 0.21656588966219534,
+        "ActionDeltaL1Beta": 0.3325565215943316,
+        "TGripF1": 0.6091549295774648
+      },
+      "CALVIN": {
+        "TransL1": 0.1828072807185021,
+        "ActionDeltaL1Beta": 0.38167525058824087,
+        "TGripF1": 0.7639060568603213
+      }
+    },
+    "Adapter 1.00": {
+      "SelectionScore": 0.2687092865468216,
+      "LIBERO": {
+        "TransL1": 0.2144562454793664,
+        "ActionDeltaL1Beta": 0.33017106622566766,
+        "TGripF1": 0.5985500679655642
+      },
+      "CALVIN": {
+        "TransL1": 0.1806666332031977,
+        "ActionDeltaL1Beta": 0.37548256986318335,
+        "TGripF1": 0.7706535141800247
+      }
+    },
+    "Gripper adapter": {
+      "SelectionScore": 0.2743840295135799,
+      "LIBERO": {
+        "TransL1": 0.2220385896341951,
+        "ActionDeltaL1Beta": 0.3342157290468757,
+        "TGripF1": 0.5963201064065617
+      },
+      "CALVIN": {
+        "TransL1": 0.18172076515678326,
+        "ActionDeltaL1Beta": 0.35908273863682694,
+        "TGripF1": 0.7743526510480887
+      }
+    },
+    "+ beta_horizon": {
+      "SelectionScore": 0.25872385752765154,
+      "LIBERO": {
+        "TransL1": 0.20719232325450346,
+        "ActionDeltaL1Beta": 0.3405543758433673,
+        "TGripF1": 0.6221622836592492
+      },
+      "CALVIN": {
+        "TransL1": 0.17826472436790367,
+        "ActionDeltaL1Beta": 0.35397762252185627,
+        "TGripF1": 0.7697082557417755
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "note": "Frozen raw test values used by main_policy_improvement.py. Clock-pre and LaDyP values are two-seed means; DP-Base is the single baseline run. LIBERO LaDyP GripF1 includes the corrected aggregation value (+0.81 pts over Clock-pre).",
+  "values": {
+    "DP-Base": {
+      "LIBERO": {
+        "NormL1": 0.201612,
+        "TransL1": 0.235577,
+        "NonTransL1": 0.194527,
+        "ChunkL1": 0.21783,
+        "GripF1": 0.711367,
+        "TGripF1": 0.550651
+      },
+      "CALVIN": {
+        "NormL1": 0.172507,
+        "TransL1": 0.195308,
+        "NonTransL1": 0.164581,
+        "ChunkL1": 0.216733,
+        "GripF1": 0.871063,
+        "TGripF1": 0.745003
+      }
+    },
+    "Clock-pre": {
+      "LIBERO": {
+        "NormL1": 0.1788,
+        "TransL1": 0.22795,
+        "NonTransL1": 0.1686,
+        "ChunkL1": 0.20135,
+        "GripF1": 0.76785,
+        "TGripF1": 0.5819
+      },
+      "CALVIN": {
+        "NormL1": 0.16165,
+        "TransL1": 0.18505,
+        "NonTransL1": 0.1535,
+        "ChunkL1": 0.1967,
+        "GripF1": 0.8794,
+        "TGripF1": 0.757
+      }
+    },
+    "LaDyP": {
+      "LIBERO": {
+        "NormL1": 0.17155,
+        "TransL1": 0.2129,
+        "NonTransL1": 0.163,
+        "ChunkL1": 0.1955,
+        "GripF1": 0.77595,
+        "TGripF1": 0.60375
+      },
+      "CALVIN": {
+        "NormL1": 0.1543,
+        "TransL1": 0.18255,
+        "NonTransL1": 0.14445,
+        "ChunkL1": 0.1831,
+        "GripF1": 0.88755,
+        "TGripF1": 0.76125
+      }
+    }
+  }
+}

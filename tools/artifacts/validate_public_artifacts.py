@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import sys
 from collections import Counter
@@ -11,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -29,11 +30,14 @@ PUBLIC_OBSERVATION_KEYS = {
     "predicate_name",
     "arguments",
     "observed_value",
+    "observation_kind",
     "confidence",
     "evidence_ref",
     "polarity",
     "metadata",
 }
+PUBLIC_OBSERVATION_OPTIONAL_KEYS = {"observation_kind"}
+PUBLIC_OBSERVATION_REQUIRED_KEYS = PUBLIC_OBSERVATION_KEYS - PUBLIC_OBSERVATION_OPTIONAL_KEYS
 
 PUBLIC_QUERY_BASE_KEYS = {
     "query_id",
@@ -96,8 +100,30 @@ TASK_SPEC_BANNED_KEYS = {
 }
 
 
+def open_text(path: Path, mode: str = "r"):
+    if path.name.endswith(".gz"):
+        return gzip.open(path, mode + "t", encoding="utf-8")
+    return path.open(mode, encoding="utf-8")
+
+
+def stream_name_for_path(path: Path) -> str:
+    name = path.name
+    if name.endswith(".jsonl.gz"):
+        return name[: -len(".jsonl.gz")]
+    if name.endswith(".jsonl"):
+        return name[: -len(".jsonl")]
+    return path.stem
+
+
+def iter_jsonl_paths(directory: Path) -> list[Path]:
+    return sorted(
+        [*directory.glob("*.jsonl"), *directory.glob("*.jsonl.gz")],
+        key=lambda path: (stream_name_for_path(path), path.name),
+    )
+
+
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    with path.open(encoding="utf-8") as f:
+    with open_text(path) as f:
         return [json.loads(line) for line in f if line.strip()]
 
 
@@ -190,7 +216,7 @@ def validate_observation_stream(path: Path, errors: list[str]) -> Counter[str]:
     for index, row in enumerate(rows, start=1):
         counter["rows"] += 1
         extra_keys = set(row) - PUBLIC_OBSERVATION_KEYS
-        missing_keys = PUBLIC_OBSERVATION_KEYS - set(row)
+        missing_keys = PUBLIC_OBSERVATION_REQUIRED_KEYS - set(row)
         if extra_keys:
             add_error(errors, path, index, f"unexpected keys: {', '.join(sorted(extra_keys))}")
         if missing_keys:
@@ -239,7 +265,7 @@ def build_report(
     status = "PASS" if not errors else "FAIL"
     return f"""# Public Artifact Validation v0
 
-本报告由 `tools/8_validate_public_artifacts.py` 生成。
+本报告由 `tools/artifacts/validate_public_artifacts.py` 生成。
 
 ## Status
 
@@ -322,9 +348,12 @@ def main() -> None:
     )
     stream_counts: dict[str, int] = {}
     if stream_dir.exists():
-        for path in sorted(stream_dir.glob("*.jsonl")):
+        for path in iter_jsonl_paths(stream_dir):
             counts = validate_observation_stream(path, errors)
-            stream_counts[path.stem] = counts["rows"]
+            stream_name = stream_name_for_path(path)
+            if stream_name in stream_counts:
+                add_error(errors, path, None, f"duplicate stream name {stream_name}")
+            stream_counts[stream_name] = counts["rows"]
 
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(

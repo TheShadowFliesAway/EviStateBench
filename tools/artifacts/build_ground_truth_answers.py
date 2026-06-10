@@ -14,6 +14,7 @@ Semantics:
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import sys
 from collections import Counter, defaultdict
@@ -22,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -48,6 +49,33 @@ DEFAULT_REPORT_PATH = REPO_ROOT / "reports" / "ground_truth_answers_v0.md"
 
 
 StateKey = tuple[str, tuple[str, ...]]
+
+
+def open_text(path: Path, mode: str = "r"):
+    if path.name.endswith(".gz"):
+        return gzip.open(path, mode + "t", encoding="utf-8")
+    return path.open(mode, encoding="utf-8")
+
+
+def stream_name_for_path(path: Path) -> str:
+    name = path.name
+    if name.endswith(".jsonl.gz"):
+        return name[: -len(".jsonl.gz")]
+    if name.endswith(".jsonl"):
+        return name[: -len(".jsonl")]
+    return path.stem
+
+
+def iter_jsonl_paths(directory: Path) -> list[Path]:
+    return sorted(
+        [*directory.glob("*.jsonl"), *directory.glob("*.jsonl.gz")],
+        key=lambda path: (stream_name_for_path(path), path.name),
+    )
+
+
+def stable_value_key(value: Any) -> str:
+    """Return a hashable key for JSON-compatible observed values."""
+    return json.dumps(value, ensure_ascii=False, sort_keys=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,7 +133,7 @@ def state_key_from_state(state: StateInstance) -> StateKey:
 
 def load_timeline(path: Path) -> list[TimelineEvent]:
     events: list[TimelineEvent] = []
-    with path.open(encoding="utf-8") as f:
+    with open_text(path) as f:
         for line in f:
             if not line.strip():
                 continue
@@ -127,13 +155,13 @@ def load_timeline(path: Path) -> list[TimelineEvent]:
 
 
 def load_queries(path: Path) -> list[dict[str, Any]]:
-    with path.open(encoding="utf-8") as f:
+    with open_text(path) as f:
         return [json.loads(line) for line in f if line.strip()]
 
 
 def load_observations(path: Path) -> list[StateObservation]:
     observations: list[StateObservation] = []
-    with path.open(encoding="utf-8") as f:
+    with open_text(path) as f:
         for line in f:
             if not line.strip():
                 continue
@@ -152,8 +180,14 @@ def discover_streams(
 ) -> dict[str, Path]:
     streams = {"clean": clean_stream_path}
     if stream_dir.exists():
-        for path in sorted(stream_dir.glob("*.jsonl")):
-            streams[path.stem] = path
+        for path in iter_jsonl_paths(stream_dir):
+            stream_name = stream_name_for_path(path)
+            if stream_name in streams:
+                raise ValueError(
+                    f"Duplicate observation stream name {stream_name!r}: "
+                    f"{streams[stream_name]} and {path}"
+                )
+            streams[stream_name] = path
     return streams
 
 
@@ -246,9 +280,9 @@ class ObservationAvailability:
 
         latest_event_time = max(obs.event_time for obs in candidates)
         latest = [obs for obs in candidates if obs.event_time == latest_event_time]
-        values: dict[Any, list[StateObservation]] = defaultdict(list)
+        values: dict[str, list[StateObservation]] = defaultdict(list)
         for obs in latest:
-            values[obs.observed_value].append(obs)
+            values[stable_value_key(obs.observed_value)].append(obs)
 
         evidence_refs = tuple(obs.evidence_ref for obs in latest if obs.evidence_ref)
         if len(values) > 1:
@@ -268,7 +302,8 @@ class ObservationAvailability:
                 latest_event_time=latest_event_time,
             )
 
-        value, group = next(iter(values.items()))
+        group = next(iter(values.values()))
+        value = group[0].observed_value
         confidence = max(obs.confidence for obs in group)
         status = "known" if confidence >= self.uncertain_threshold else "uncertain"
         return AvailableEvidenceResult(
@@ -488,7 +523,7 @@ def build_answers_for_stream(
 
 def write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
+    with open_text(path, "w") as f:
         for row in rows:
             f.write(json.dumps(row, ensure_ascii=False, sort_keys=True))
             f.write("\n")
@@ -630,7 +665,7 @@ def build_report(
 
     return f"""# Ground-Truth Answer Sets v0
 
-本报告由 `tools/build_ground_truth_answers.py` 生成。
+本报告由 `tools/artifacts/build_ground_truth_answers.py` 生成。
 
 它对应最小验证计划的第 6 步：
 

@@ -1,0 +1,2 @@
+{"primitive": "SET_STATE", "object": "oven.n.01_1", "predicate": "toggled_on", "value": false, "steps": 2}
+{"primitive": "SET_STATE", "object": "fruitcake.n.02_1", "predicate": "hot", "value": false, "steps": 5}

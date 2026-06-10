@@ -33,7 +33,14 @@ QueryType: TypeAlias = Literal[
 QueryStatus: TypeAlias = Literal["known", "unknown", "uncertain", "conflict"]
 
 # STATE_DIFF 需要一个范围。v0 先保留抽象 scope，不急着绑定到具体索引实现。
-DiffScope: TypeAlias = Literal["task", "room", "object_set", "predicate_category"]
+DiffScope: TypeAlias = Literal[
+    "target_state",
+    "target_state_set",
+    "task",
+    "room",
+    "object_set",
+    "predicate_category",
+]
 
 # valid_interval / transaction_interval 都用这个结构。
 # end=None 表示这个区间目前仍然开放，比如状态从 t=10 开始一直有效到当前。

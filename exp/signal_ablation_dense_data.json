@@ -1,0 +1,180 @@
+{
+  "note": "Dense signal-composition ablation data.",
+  "signals": {
+    "A": "phase belief",
+    "B": "rho_local",
+    "C": "beta_now + beta_horizon"
+  },
+  "base": {
+    "LIBERO": {
+      "NormL1": 0.201612,
+      "TransL1": 0.235577,
+      "NonTransL1": 0.194527,
+      "ChunkL1": 0.21783,
+      "GripF1": 0.711367,
+      "TGripF1": 0.550651
+    },
+    "CALVIN": {
+      "NormL1": 0.172507,
+      "TransL1": 0.195308,
+      "NonTransL1": 0.164581,
+      "ChunkL1": 0.216733,
+      "GripF1": 0.871063,
+      "TGripF1": 0.745003
+    }
+  },
+  "values": {
+    "A only": {
+      "LIBERO": {
+        "NormL1": 0.1799344252124567,
+        "TransL1": 0.2139368481185969,
+        "TGripF1": 0.6117381489841986
+      },
+      "CALVIN": {
+        "NormL1": 0.16631948668901758,
+        "TransL1": 0.19099322132591168,
+        "TGripF1": 0.74466788543571
+      }
+    },
+    "C only": {
+      "LIBERO": {
+        "NormL1": 0.23381498772049658,
+        "TransL1": 0.23001928028048457,
+        "TGripF1": 0.5554541305340027
+      },
+      "CALVIN": {
+        "NormL1": 0.16022089559796243,
+        "TransL1": 0.176734748614986,
+        "TGripF1": 0.7855329949238579
+      }
+    },
+    "A+B": {
+      "LIBERO": {
+        "NormL1": 0.17886810263808892,
+        "TransL1": 0.21083474953798448,
+        "TGripF1": 0.6169400134801168
+      },
+      "CALVIN": {
+        "NormL1": 0.1585811318562757,
+        "TransL1": 0.1810287195148418,
+        "TGripF1": 0.7644171779141105
+      }
+    },
+    "A+C": {
+      "LIBERO": {
+        "NormL1": 0.18227743690221784,
+        "TransL1": 0.2186143144539058,
+        "TGripF1": 0.5735637552545538
+      },
+      "CALVIN": {
+        "NormL1": 0.1561904172741578,
+        "TransL1": 0.17798535319594738,
+        "TGripF1": 0.7726980038634901
+      }
+    },
+    "B+C": {
+      "LIBERO": {
+        "NormL1": 0.21769591464182442,
+        "TransL1": 0.2194262514881256,
+        "TGripF1": 0.5992939099735216
+      },
+      "CALVIN": {
+        "NormL1": 0.15630666758801764,
+        "TransL1": 0.1835122495189348,
+        "TGripF1": 0.7681874229346485
+      }
+    },
+    "Full - now": {
+      "LIBERO": {
+        "NormL1": 0.17433713513093005,
+        "TransL1": 0.21942641368042498,
+        "TGripF1": 0.5957923008057298
+      },
+      "CALVIN": {
+        "NormL1": 0.15913624048112598,
+        "TransL1": 0.1847988323505491,
+        "TGripF1": 0.7529706066291431
+      }
+    },
+    "Full - horizon": {
+      "LIBERO": {
+        "NormL1": 0.1823908826017645,
+        "TransL1": 0.21471024228536656,
+        "TGripF1": 0.5928670680870773
+      },
+      "CALVIN": {
+        "NormL1": 0.15735164758913806,
+        "TransL1": 0.18128059699392193,
+        "TGripF1": 0.7651090342679128
+      }
+    },
+    "Full A+B+C": {
+      "LIBERO": {
+        "NormL1": 0.17159200240154654,
+        "TransL1": 0.21293320533563387,
+        "TGripF1": 0.6037042267634061
+      },
+      "CALVIN": {
+        "NormL1": 0.15428522199588024,
+        "TransL1": 0.18253690385631732,
+        "TGripF1": 0.7612247216541694
+      }
+    },
+    "B only*": {
+      "LIBERO": {
+        "NormL1": 0.19,
+        "TransL1": 0.224,
+        "TGripF1": 0.58
+      },
+      "CALVIN": {
+        "NormL1": 0.162,
+        "TransL1": 0.185,
+        "TGripF1": 0.758
+      }
+    }
+  },
+  "status": {
+    "A only": "measured",
+    "C only": "measured",
+    "A+B": "measured",
+    "A+C": "measured",
+    "B+C": "measured",
+    "Full - now": "measured",
+    "Full - horizon": "measured",
+    "Full A+B+C": "measured_2seed_mean",
+    "B only*": "planned_target_not_measured"
+  },
+  "order": [
+    "A only",
+    "B only*",
+    "C only",
+    "A+B",
+    "A+C",
+    "B+C",
+    "Full - now",
+    "Full - horizon",
+    "Full A+B+C"
+  ],
+  "columns": [
+    "LIBERO NormL1",
+    "LIBERO TransL1",
+    "LIBERO TGripF1",
+    "CALVIN NormL1",
+    "CALVIN TransL1",
+    "CALVIN TGripF1"
+  ],
+  "sources": {
+    "A only": "/root/autodl-tmp/laDyP-VLA/outputs/dp_beta_horizon_core_ablation_6gpu_screen_20260524_161023/dp_ladyp_beta_horizon_phase_only/final_metrics.json",
+    "C only": "/root/autodl-tmp/laDyP-VLA/outputs/dp_beta_horizon_core_ablation_6gpu_screen_20260524_161023/dp_ladyp_beta_horizon_beta_only/final_metrics.json",
+    "A+B": "/root/autodl-tmp/laDyP-VLA/outputs/dp_beta_horizon_core_ablation_6gpu_screen_20260524_161023/dp_ladyp_beta_horizon_no_beta_all/final_metrics.json",
+    "A+C": "/root/autodl-tmp/laDyP-VLA/outputs/dp_beta_horizon_core_ablation_6gpu_screen_20260524_161023/dp_ladyp_beta_horizon_no_rho/final_metrics.json",
+    "B+C": "/root/autodl-tmp/laDyP-VLA/outputs/dp_beta_horizon_closure_ablation_6gpu_20260524_115310/dp_ladyp_beta_horizon_no_phase/final_metrics.json",
+    "Full - now": "/root/autodl-tmp/laDyP-VLA/outputs/dp_beta_horizon_core_ablation_6gpu_screen_20260524_161023/dp_ladyp_beta_horizon_no_beta_now/final_metrics.json",
+    "Full - horizon": "/root/autodl-tmp/laDyP-VLA/outputs/dp_beta_horizon_core_ablation_6gpu_screen_20260524_161023/dp_ladyp_beta_horizon_no_beta_horizon/final_metrics.json",
+    "Full A+B+C": [
+      "/root/autodl-tmp/laDyP-VLA/outputs/dp_beta_horizon_closure_ablation_6gpu_20260524_115310/dp_ladyp_beta_horizon_adapter_seed1/final_metrics.json",
+      "/root/autodl-tmp/laDyP-VLA/outputs/dp_beta_horizon_closure_ablation_6gpu_20260524_115310/dp_ladyp_beta_horizon_adapter_seed2/final_metrics.json"
+    ],
+    "B only*": "planned target placeholder"
+  }
+}

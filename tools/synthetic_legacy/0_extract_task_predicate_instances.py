@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -30,7 +30,7 @@ from evistatebench.schema import (  # noqa: E402
     PREDICATE_CATEGORY_V0,
     RUNTIME_EXTENSION_PREDICATES_V0,
 )
-from tools.audit_bddl_tasks import (  # noqa: E402
+from tools.synthetic_legacy.audit_bddl_tasks import (  # noqa: E402
     DEFAULT_BDDL_ROOT,
     DEFAULT_DOMAIN,
     PredicateOccurrence,
@@ -280,7 +280,7 @@ def build_report(
 
     return f"""# Task Predicate Instances v0
 
-本报告由 `tools/extract_task_predicate_instances.py` 生成。
+本报告由 `tools/synthetic_legacy/0_extract_task_predicate_instances.py` 生成。
 
 它对应最小验证计划的第 1 步：
 

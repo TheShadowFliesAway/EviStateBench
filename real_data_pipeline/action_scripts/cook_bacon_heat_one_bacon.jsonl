@@ -1,0 +1,4 @@
+{"primitive": "GRASP", "object": "bacon.n.01_1"}
+{"primitive": "PLACE_NEAR_HEATING_ELEMENT", "object": "stove.n.01_1"}
+{"primitive": "TOGGLE_ON", "object": "stove.n.01_1"}
+{"primitive": "WAIT", "steps": 240}

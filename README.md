@@ -35,7 +35,7 @@ EviStateBench 的 public benchmark artifacts 主要包括：
 StateObservation
 ```
 
-表示原始观察证据。它记录某个来源在某个事件时间，以某个置信度声称某个任务状态成立、不成立，或者对已有状态形成修正。
+表示原始观察证据。它记录某个来源在某个事件时间，以某个置信度声称某个任务状态成立、不成立，或者给出 pose、velocity、temperature 这类测量证据。`observation_kind` 用来区分任务谓词状态和原始测量证据。
 
 ```text
 Query / QueryAnswer
@@ -94,14 +94,14 @@ BEHAVIOR / OmniGibson 的作用是提供任务、predicate、object state 和 si
 
 ## Benchmark 边界
 
-当前 v0 把 benchmark artifact 明确分成三层。
+benchmark artifact 明确分成三层。
 
 给被测系统看的 public input：
 
 ```text
-data/public_v0/task_specs.jsonl
-data/public_v0/observation_streams/*.jsonl
-data/public_v0/queries.jsonl
+public_v0/task_specs.jsonl
+public_v0/observation_streams/*.jsonl 或 *.jsonl.gz
+public_v0/queries.jsonl
 ```
 
 被测系统需要输出：
@@ -113,13 +113,19 @@ predicted QueryAnswers JSONL
 只给 oracle / evaluator 使用的 hidden artifacts：
 
 ```text
-data/synthetic_ground_truth_timelines_v0.jsonl
-data/task_predicate_instances_v0.jsonl
-data/answer_sets_v0/*.jsonl
-data/evaluation_v0/*
+intermediate/*hidden*
+answer_sets_v0/*.jsonl
+evaluation / baseline sanity reports
 ```
 
-`data/public_v0/` 是当前真正面向 benchmark 使用者的输入包。它由 `tools/7_build_public_artifacts.py` 从现有中间产物清理生成：`CHECK_GOAL` query 不再内嵌 goal predicates，而是通过 `task_spec_id` 引用 `task_specs.jsonl`；public observation stream 也不再包含 `truth_value`、`source_section`、`source_event_type`、`synthetic_reason` 等 generator/oracle 字段。
+当前真实 benchmark 的 public package 位于
+`real_data_pipeline/artifacts/public_v3_scale48_seed6_main/public_v0/`
+和 `real_data_pipeline/artifacts/public_v4_local_seed3_main/public_v0/`。
+旧 synthetic v0 的 `data/public_v0/` 可以由 `tools/artifacts/build_public_artifacts.py`
+重新生成，但不再作为项目根目录的常驻文件保存。
+
+public observation stream 不应包含 `truth_value`、`source_section`、
+`source_event_type`、`synthetic_reason` 等 generator/oracle 字段。
 
 ## 评测维度
 
@@ -147,7 +153,6 @@ benchmark 需要特别分析不同方法在 noisy、delayed、out-of-order、mis
 计划对比的方法包括：
 
 ```text
-Latest Observation
 Temporal Log + Voting
 Static Symbolic State
 SQL / DuckDB Scan
@@ -158,90 +163,39 @@ EviStateDB
 
 其中 Recall Memory Baseline 用来模拟 eMEM / STaR 这类基于 retrieval 的 embodied memory 方法；EviStateDB 作为 reference baseline engine，不主张是最强系统，也不生成标准答案，而是作为一个会被 evaluator 打分的官方参考 baseline。
 
+`Latest Observation` / `Arrival-latest` 这类方法只保留为内部 sanity lower bound：
+它可以用来检查扰动流是否真的制造了 temporal-state maintenance 难度，
+但不作为论文主实验的正式 baseline，也不承担 benchmark 贡献的证明。
+
 ## 当前仓库状态
 
-当前阶段先保留论文主线文档，不保留旧 LifelongSceneDB 原型代码。
+当前阶段保留论文主线、benchmark schema、synthetic v0 工具和真实仿真 pipeline，
+不再把旧的本地生成数据当作仓库内容维护。
 
 ```text
 EviStateBench_IDEA.md  当前定稿的论文想法和 benchmark 设计主线
 README.md             项目入口说明
 pyproject.toml        当前 evistatebench Python 包的最小安装配置
 evistatebench/        EviStateBench v0 的轻量 Python 数据结构
-tools/                面向 benchmark 设计的轻量审计/分析工具
-reports/              当前阶段生成的 task-space 审计报告
+tools/                通用 artifact/evaluator 工具和旧 synthetic pipeline 归档
+real_data_pipeline/   BEHAVIOR / OmniGibson 真实 benchmark generator
 ```
 
-当前已有的 Phase 1 产物：
+`evistatebench/engine/` 是 EviStateDB reference baseline engine，属于 baseline contribution；
+`real_data_pipeline/` 才是当前 benchmark 数据生成工作的主线。
+
+`tools/artifacts/` 是真实 benchmark 仍会调用的共享 artifact/evaluator 工具；
+`tools/synthetic_legacy/` 是旧 synthetic v0 顺序脚本和 BDDL audit。它们生成的
+`data/` 与 `reports/` 是本地过程产物，已被 `.gitignore` 忽略，需要时可以重新生成，
+不再默认保存在项目根目录。
+
+当前真实 benchmark 的最新状态、保留 artifact、清理策略和复现实验命令见：
 
 ```text
-evistatebench/schema.py          StateObservation schema v0 和 predicate taxonomy 常量
-evistatebench/queries.py         CHECK / AS_OF / DIFF / WHY / GOAL 的 query / answer schema v0
-evistatebench/engine/views.py    EviStateDB 内部 TemporalStateView schema v0，不是 public output
-evistatebench/evistatebench_idea_experiment_brief.md  实验执行版 IDEA 简述
-tools/audit_bddl_tasks.py        解析 BEHAVIOR/BDDL task 并统计 predicate 分布
-tools/0_extract_task_predicate_instances.py
-                                 从 BDDL init/goal 抽取 predicate instances
-tools/1_build_synthetic_timelines.py
-                                 基于 predicate instances 构造 synthetic ground-truth timeline
-tools/2_build_clean_observations.py
-                                 从 hidden timeline 生成 clean StateObservation stream
-tools/3_build_perturbed_observations.py
-                                 从 clean stream 生成 delay/missing/conflict 等扰动 observation streams
-tools/4_build_query_sets.py
-                                 基于 hidden timeline 和 goal specs 生成 public query set
-tools/5_build_ground_truth_answers.py
-                                 基于 hidden timeline / observation streams 生成 ground-truth answer sets
-tools/6_evaluate_answers.py      对 predicted answers 和 ground-truth answers 做统一评估
-tools/7_build_public_artifacts.py
-                                 生成给被测系统使用的 sanitized public artifact package
-tools/8_validate_public_artifacts.py
-                                 检查 public artifacts 中是否残留 oracle/generator 字段
-reports/bddl_task_audit.md       面向复盘的 BDDL task audit 报告
-reports/bddl_task_audit.json     后续挑选任务族和 query template 时可复用的结构化统计结果
-reports/task_space_v0.md         predicate taxonomy v0 和 representative task families v0
-reports/query_templates_v0.md    CHECK / AS_OF / DIFF / WHY / GOAL 查询模板 v0
-reports/task_predicate_instances_v0.md
-                                 predicate instance 抽取结果的统计报告
-reports/synthetic_timelines_v0.md
-                                 synthetic ground-truth timeline 生成结果的统计报告
-reports/clean_observations_v0.md
-                                 clean StateObservation stream 生成结果的统计报告
-reports/perturbed_observations_v0.md
-                                 扰动 StateObservation streams 生成结果的统计报告
-reports/query_sets_v0.md         CHECK_STATE / AS_OF_STATE / STATE_DIFF / CHECK_GOAL query set 报告
-reports/ground_truth_answers_v0.md
-                                 ground-truth answer sets 生成结果的统计报告
-reports/evaluator_self_check_v0.md
-                                 evaluator 使用 ground-truth answer 自检生成的评估报告
-reports/public_artifacts_v0.md   public artifact package 生成报告
-reports/public_artifact_validation_v0.md
-                                 public artifact 边界校验报告
+real_data_pipeline/README.md
+real_data_pipeline/REAL_BENCHMARK_PROTOCOL.md
+real_data_pipeline/PROJECT_CLEANUP.md
 ```
-
-本地生成的数据分为 public input 和 hidden/evaluation-only 两类。
-
-public input 位于：
-
-```text
-data/public_v0/task_specs.jsonl
-data/public_v0/queries.jsonl
-data/public_v0/observation_streams/
-data/public_v0/manifest.json
-```
-
-hidden / intermediate / evaluation-only 数据位于：
-
-```text
-data/task_predicate_instances_v0.jsonl
-data/synthetic_ground_truth_timelines_v0.jsonl
-data/clean_state_observations_v0.jsonl
-data/observation_streams_v0/
-data/query_sets_v0/
-data/answer_sets_v0/
-data/evaluation_v0/
-```
-
-`data/` 默认被 `.gitignore` 忽略，适合放本地生成的 benchmark 数据和中间产物。
 
 后续实现应围绕 `EviStateBench_IDEA.md` 逐步补充：
 

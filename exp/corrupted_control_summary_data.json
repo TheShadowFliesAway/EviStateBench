@@ -1,0 +1,29 @@
+{
+  "description": "Offline corrupted-signal controls. Values are test metrics from DP-Base, full LaDyP, and corrupted LaDyP variants.",
+  "metrics": {
+    "action_gain": "Mean L1 reduction over DP-Base across NormL1, TransL1, and ChunkL1, averaged over LIBERO and CALVIN.",
+    "transition_gripper_gain": "TGripF1 point gain over DP-Base, averaged over LIBERO and CALVIN."
+  },
+  "values": {
+    "DP-Base": {
+      "LIBERO": {"NormL1": 0.2016, "TransL1": 0.2356, "ChunkL1": 0.2178, "TGripF1": 0.5507},
+      "CALVIN": {"NormL1": 0.1725, "TransL1": 0.1953, "ChunkL1": 0.2167, "TGripF1": 0.7450}
+    },
+    "Full LaDyP": {
+      "LIBERO": {"NormL1": 0.1739, "TransL1": 0.2131, "ChunkL1": 0.1973, "TGripF1": 0.6144},
+      "CALVIN": {"NormL1": 0.1555, "TransL1": 0.1819, "ChunkL1": 0.1840, "TGripF1": 0.7632}
+    },
+    "Random beta": {
+      "LIBERO": {"NormL1": 0.1779, "TransL1": 0.2158, "ChunkL1": 0.2041, "TGripF1": 0.6070},
+      "CALVIN": {"NormL1": 0.1633, "TransL1": 0.1938, "ChunkL1": 0.1950, "TGripF1": 0.7282}
+    },
+    "Shifted signal": {
+      "LIBERO": {"NormL1": 0.1767, "TransL1": 0.2117, "ChunkL1": 0.2020, "TGripF1": 0.6175},
+      "CALVIN": {"NormL1": 0.1609, "TransL1": 0.1831, "ChunkL1": 0.1969, "TGripF1": 0.7565}
+    },
+    "Shuffled episode": {
+      "LIBERO": {"NormL1": 0.2043, "TransL1": 0.2370, "ChunkL1": 0.2227, "TGripF1": 0.5373},
+      "CALVIN": {"NormL1": 0.1673, "TransL1": 0.1884, "ChunkL1": 0.2139, "TGripF1": 0.7553}
+    }
+  }
+}

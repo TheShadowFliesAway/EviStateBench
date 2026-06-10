@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -473,7 +473,7 @@ def build_report(
 
     return f"""# Synthetic Ground-Truth Timelines v0
 
-本报告由 `tools/build_synthetic_timelines.py` 生成。
+本报告由 `tools/synthetic_legacy/1_build_synthetic_timelines.py` 生成。
 
 它对应最小验证计划的第 2 步：
 

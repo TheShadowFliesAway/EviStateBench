@@ -24,6 +24,8 @@ from evistatebench.queries import (
 from evistatebench.schema import (
     CORE_STATE_PREDICATES_V0,
     CONTEXT_PREDICATES_V0,
+    OBSERVATION_EXTENSION_PREDICATES_V0,
+    ObservationKind,
     PREDICATE_CATEGORY_V0,
     RUNTIME_EXTENSION_PREDICATES_V0,
     StateObservation,
@@ -38,6 +40,8 @@ __all__ = [
     "GoalAnswer",
     "GoalPredicateResult",
     "GoalQuery",
+    "OBSERVATION_EXTENSION_PREDICATES_V0",
+    "ObservationKind",
     "PREDICATE_CATEGORY_V0",
     "Query",
     "QueryAnswer",

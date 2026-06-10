@@ -14,10 +14,19 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Literal, TypeAlias
 
 
-# v0 主要处理 boolean 状态，比如 inside(...) = True。
-# 但这里预留 int/float/str，是为了后续接入 temperature、pose、distance
-# 或 detector 输出的 categorical 状态。
-ObservedValue: TypeAlias = bool | int | float | str
+# StateObservation 面向 public benchmark input，所以 observed_value 必须是
+# JSON-compatible。v0 synthetic pipeline 主要用 bool；真实 BEHAVIOR / OmniGibson
+# 数据还会出现 pose、velocity、joint state 这类 list/dict measurement。
+JSONScalar: TypeAlias = bool | int | float | str | None
+ObservedValue: TypeAlias = JSONScalar | list[Any] | dict[str, Any]
+
+# observation_kind 描述这条 observation 是哪种“证据形态”。
+# predicate_state: inside(cup, cabinet)=True 这类任务谓词状态。
+# object_existence / object_pose / object_velocity / joint_state / robot_pose:
+# simulator snapshot 或 perception pipeline 直接给出的测量证据。
+# numeric_state / categorical_state: temperature、detector category 等值状态。
+# simulator_diagnostic: 暂时保留的内部诊断证据，不一定直接参与任务指标。
+ObservationKind: TypeAlias = str
 
 # polarity 描述这条 observation 在维护引擎里的作用。
 # 它和 observed_value 不是一回事：
@@ -65,6 +74,21 @@ CONTEXT_PREDICATES_V0 = frozenset({"inroom", "real", "future", "insource"})
 # robot state 或 simulator sensor。仅靠 BDDL init/goal 统计目前拿不到。
 RUNTIME_EXTENSION_PREDICATES_V0 = frozenset({"grasped"})
 
+# 真实数据接入时出现的 observation-level / measurement-level predicates。
+# 它们不一定都是 BDDL goal predicate，但可以作为维护 task-state view 的证据。
+OBSERVATION_EXTENSION_PREDICATES_V0 = frozenset(
+    {
+        "object_exists",
+        "object_pose",
+        "object_velocity",
+        "joint_state",
+        "robot_pose",
+        "temperature",
+        "max_temperature",
+        "slicer_active",
+    }
+)
+
 PREDICATE_CATEGORY_V0: dict[str, str] = {
     # Context / bookkeeping.
     "future": "BDDL bookkeeping/source marker",
@@ -99,7 +123,27 @@ PREDICATE_CATEGORY_V0: dict[str, str] = {
     "under": "placement/spatial relation",
     # Runtime extension.
     "grasped": "runtime robot interaction",
+    # Observation / measurement extension.
+    "object_exists": "object existence evidence",
+    "object_pose": "object pose measurement",
+    "object_velocity": "object velocity measurement",
+    "joint_state": "joint state measurement",
+    "robot_pose": "robot pose measurement",
+    "temperature": "numeric object state",
+    "max_temperature": "numeric simulator/object diagnostic",
+    "slicer_active": "tool/action state",
 }
+
+
+def is_json_value(value: Any) -> bool:
+    """Return whether value can safely live in a JSON benchmark artifact."""
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return True
+    if isinstance(value, list):
+        return all(is_json_value(item) for item in value)
+    if isinstance(value, dict):
+        return all(isinstance(key, str) and is_json_value(item) for key, item in value.items())
+    return False
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +165,7 @@ class StateObservation:
             event_time=12.4,
             arrival_time=15.9,
             source="simulator_state",
+            observation_kind="predicate_state",
             predicate_name="covered",
             arguments=("shovel_1", "dirt_1"),
             observed_value=False,
@@ -168,7 +213,7 @@ class StateObservation:
     arguments: tuple[str, ...]
 
     # 观察到的 predicate value。v0 主要是 bool。
-    # 但这里保留 numeric/categorical，是为了后续扩展：
+    # 但这里保留 numeric/categorical/list/dict，是为了后续扩展：
     #   temperature(object)
     #   pose(object)
     #   distance(object_a, object_b)
@@ -177,6 +222,15 @@ class StateObservation:
     # observation 级别的置信度，范围是 [0, 1]。
     # 它只是这条证据自身的强度，不是多条证据融合后的最终状态置信度。
     confidence: float
+
+    # observation_kind 区分“任务谓词状态”和“原始测量证据”。
+    # 例如：
+    #   predicate_state + inside(cup, cabinet)=True
+    #   object_pose + object_pose(cup)={pos, ori}
+    #   numeric_state + temperature(food)=80.0
+    # 这样 predicate_name 仍然保留统一 state_key 语义，但不会把 pose
+    # 误认为 BDDL boolean predicate。
+    observation_kind: ObservationKind = "predicate_state"
 
     # 指向原始证据的位置。WHY_STATE 最终应该返回这些 evidence_ref。
     # 例如 frame id、trajectory step、simulator state id、detector output id、
@@ -204,6 +258,8 @@ class StateObservation:
             raise ValueError("task_id must be non-empty")
         if not self.source:
             raise ValueError("source must be non-empty")
+        if not self.observation_kind:
+            raise ValueError("observation_kind must be non-empty")
         if not self.predicate_name:
             raise ValueError("predicate_name must be non-empty")
 
@@ -215,6 +271,10 @@ class StateObservation:
 
         if not 0.0 <= self.confidence <= 1.0:
             raise ValueError("confidence must be within [0, 1]")
+        if not is_json_value(self.observed_value):
+            raise ValueError("observed_value must be JSON-compatible")
+        if not is_json_value(self.metadata):
+            raise ValueError("metadata must be JSON-compatible")
 
     @property
     def state_key(self) -> tuple[str, tuple[str, ...]]:

@@ -1,0 +1,4 @@
+{"primitive": "SET_STATE", "object": "stove.n.01_1", "predicate": "toggled_on", "value": true, "steps": 2}
+{"primitive": "SET_STATE", "object": "bacon.n.01_1", "predicate": "temperature", "value": 90.0, "steps": 2}
+{"primitive": "SET_STATE", "object": "bacon.n.01_1", "predicate": "max_temperature", "value": 90.0, "steps": 2}
+{"primitive": "SET_STATE", "object": "bacon.n.01_1", "predicate": "cooked", "value": true, "steps": 5}

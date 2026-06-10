@@ -1,0 +1,6 @@
+{"primitive": "OPEN", "object": "microwave.n.02_1"}
+{"primitive": "GRASP", "object": "hotdog.n.02_1"}
+{"primitive": "PLACE_INSIDE", "object": "microwave.n.02_1"}
+{"primitive": "CLOSE", "object": "microwave.n.02_1"}
+{"primitive": "TOGGLE_ON", "object": "microwave.n.02_1"}
+{"primitive": "WAIT", "steps": 240}
